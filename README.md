@@ -1,6 +1,6 @@
 # Data driven PWA
 
-In this codelab, you’ll use [IndexedDB](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API) and [Workbox](https://workboxjs.org/) to create a fully offline-capable, data-driven app. You'll also use [Background Sync](https://developers.google.com/web/updates/2015/12/background-sync) to sync your app with the server even when your web app is closed.
+In this codelab, I used [IndexedDB](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API) and [Workbox](https://workboxjs.org/) to create a fully offline-capable, data-driven app. I also used [Background Sync](https://developers.google.com/web/updates/2015/12/background-sync) to sync the app with the server even when the web app is closed.
 
 ## Getting started
 

@@ -14,6 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+/*
+  Updates: 
+  - Added Delete functionality for events
+*/
+
 // register service worker
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
