@@ -48,54 +48,6 @@ Notification.requestPermission();
 // create indexedDB database
 const dbPromise = createIndexedDB();
 
-function createIndexedDB() {
-  if (!("indexedDB" in window)) {
-    return null;
-  }
-  return idb.open("dashboardr", 1, function(upgradeDb) {
-    if (!upgradeDb.objectStoreNames.contains("events")) {
-      const eventsOS = upgradeDb.createObjectStore("events", { keyPath: "id" });
-    }
-  });
-}
-
-function saveEventDataLocally(events) {
-  if (!("indexedDB" in window)) {
-    return null;
-  }
-  return dbPromise.then(db => {
-    const tx = db.transaction("events", "readwrite");
-    const store = tx.objectStore("events");
-    return Promise.all(events.map(event => store.put(event))).catch(() => {
-      tx.abort();
-      throw Error("Events were not added to the store");
-    });
-  });
-}
-
-function deleteLocalEventData(id) {
-  if (!("indexedDB" in window)) {
-    return null;
-  }
-  return dbPromise.then(db => {
-    const tx = db.transaction("events", "readwrite");
-    const store = tx.objectStore("events");
-    store.delete(parseInt(id));
-    return tx.complete;
-  });
-}
-
-function getLocalEventData() {
-  if (!("indexedDB" in window)) {
-    return null;
-  }
-  return dbPromise.then(db => {
-    const tx = db.transaction("events", "readonly");
-    const store = tx.objectStore("events");
-    return store.getAll();
-  });
-}
-
 loadContentNetworkFirst();
 
 function loadContentNetworkFirst() {
@@ -257,4 +209,52 @@ function getLastUpdated() {
 
 function setLastUpdated(date) {
   localStorage.setItem("lastUpdated", date);
+}
+
+function createIndexedDB() {
+  if (!("indexedDB" in window)) {
+    return null;
+  }
+  return idb.open("dashboardr", 1, function(upgradeDb) {
+    if (!upgradeDb.objectStoreNames.contains("events")) {
+      const eventsOS = upgradeDb.createObjectStore("events", { keyPath: "id" });
+    }
+  });
+}
+
+function saveEventDataLocally(events) {
+  if (!("indexedDB" in window)) {
+    return null;
+  }
+  return dbPromise.then(db => {
+    const tx = db.transaction("events", "readwrite");
+    const store = tx.objectStore("events");
+    return Promise.all(events.map(event => store.put(event))).catch(() => {
+      tx.abort();
+      throw Error("Events were not added to the store");
+    });
+  });
+}
+
+function deleteLocalEventData(id) {
+  if (!("indexedDB" in window)) {
+    return null;
+  }
+  return dbPromise.then(db => {
+    const tx = db.transaction("events", "readwrite");
+    const store = tx.objectStore("events");
+    store.delete(parseInt(id));
+    return tx.complete;
+  });
+}
+
+function getLocalEventData() {
+  if (!("indexedDB" in window)) {
+    return null;
+  }
+  return dbPromise.then(db => {
+    const tx = db.transaction("events", "readonly");
+    const store = tx.objectStore("events");
+    return store.getAll();
+  });
 }
