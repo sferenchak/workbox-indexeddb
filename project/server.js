@@ -76,7 +76,10 @@ app.post('/api/delete', (req, res) => {
     }
     let events = JSON.parse(data);
     let index = events.findIndex(event => event.id == id);
-    events.splice(index, 1);
+    if (index !== -1) {
+      console.log('deleting event with id: ', id)
+      events.splice(index, 1);
+    }
 
     let eventsJson = JSON.stringify(events, null, 2);
 

@@ -116,8 +116,19 @@ form {
   margin: 5px 20px;
   padding: 0;
   width: 90%;
+  position: relative;
 }
 
+.delete-button {
+  padding: 15px;
+  position: absolute;
+  right: 0;
+  cursor: pointer;
+  transition: color 0.5s;
+}
+.delete-button:hover {
+  color: red;
+}
 @media (min-width: 500px) {
   .card {
     width: 400px;

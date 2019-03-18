@@ -14,36 +14,117 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// TODO - register service worker
+// register service worker
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .register("/sw.js")
+      .then(registration => {
+        console.log(`Service Worker registered! Scope: ${registration.scope}`);
+      })
+      .catch(err => {
+        console.log(`Service Worker registration failed: ${err}`);
+      });
+  });
+}
 
-const container = document.getElementById('container');
-const offlineMessage = document.getElementById('offline');
-const noDataMessage = document.getElementById('no-data');
-const dataSavedMessage = document.getElementById('data-saved');
-const saveErrorMessage = document.getElementById('save-error');
-const addEventButton = document.getElementById('add-event-button');
+const container = document.getElementById("container");
+const offlineMessage = document.getElementById("offline");
+const noDataMessage = document.getElementById("no-data");
+const dataSavedMessage = document.getElementById("data-saved");
+const saveErrorMessage = document.getElementById("save-error");
+const addEventButton = document.getElementById("add-event-button");
 
-addEventButton.addEventListener('click', addAndPostEvent);
+addEventButton.addEventListener("click", addAndPostEvent);
+container.addEventListener("click", deleteEvent);
 
 Notification.requestPermission();
 
-// TODO - create indexedDB database
+// create indexedDB database
+const dbPromise = createIndexedDB();
+
+function createIndexedDB() {
+  if (!("indexedDB" in window)) {
+    return null;
+  }
+  return idb.open("dashboardr", 1, function(upgradeDb) {
+    if (!upgradeDb.objectStoreNames.contains("events")) {
+      const eventsOS = upgradeDb.createObjectStore("events", { keyPath: "id" });
+    }
+  });
+}
+
+function saveEventDataLocally(events) {
+  if (!("indexedDB" in window)) {
+    return null;
+  }
+  return dbPromise.then(db => {
+    const tx = db.transaction("events", "readwrite");
+    const store = tx.objectStore("events");
+    return Promise.all(events.map(event => store.put(event))).catch(() => {
+      tx.abort();
+      throw Error("Events were not added to the store");
+    });
+  });
+}
+
+function deleteLocalEventData(id) {
+  if (!("indexedDB" in window)) {
+    return null;
+  }
+  return dbPromise.then(db => {
+    const tx = db.transaction("events", "readwrite");
+    const store = tx.objectStore("events");
+    store.delete(parseInt(id));
+    return tx.complete;
+  });
+}
+
+function getLocalEventData() {
+  if (!("indexedDB" in window)) {
+    return null;
+  }
+  return dbPromise.then(db => {
+    const tx = db.transaction("events", "readonly");
+    const store = tx.objectStore("events");
+    return store.getAll();
+  });
+}
 
 loadContentNetworkFirst();
 
 function loadContentNetworkFirst() {
   getServerData()
-  .then(dataFromNetwork => {
-    updateUI(dataFromNetwork);
-  }).catch(err => { // if we can't connect to the server...
-    console.log('Network requests have failed, this is expected if offline');
-  });
+    .then(dataFromNetwork => {
+      updateUI(dataFromNetwork);
+      saveEventDataLocally(dataFromNetwork)
+        .then(() => {
+          setLastUpdated(new Date());
+          messageDataSaved();
+        })
+        .catch(err => {
+          messageSaveError();
+          console.warn(err);
+        });
+    })
+    .catch(err => {
+      // if we can't connect to the server...
+      console.log("Network requests have failed, this is expected if offline");
+      getLocalEventData().then(offlineData => {
+        if (!offlineData.length) {
+          messageNoData();
+        } else {
+          messageOffline();
+          updateUI(offlineData);
+        }
+      });
+    });
 }
 
 /* Network functions */
 
 function getServerData() {
-  return fetch('api/getAll').then(response => {
+  return fetch("api/getAll").then(response => {
     if (!response.ok) {
       throw Error(response.statusText);
     }
@@ -55,30 +136,68 @@ function addAndPostEvent(e) {
   e.preventDefault();
   const data = {
     id: Date.now(),
-    title: document.getElementById('title').value,
-    date: document.getElementById('date').value,
-    city: document.getElementById('city').value,
-    note: document.getElementById('note').value
+    title: document.getElementById("title").value,
+    date: document.getElementById("date").value,
+    city: document.getElementById("city").value,
+    note: document.getElementById("note").value
   };
+  clearForm();
   updateUI([data]);
 
-  // TODO - save event data locally
+  // save event data locally'
+  saveEventDataLocally([data]);
 
-  const headers = new Headers({'Content-Type': 'application/json'});
+  const headers = new Headers({ "Content-Type": "application/json" });
   const body = JSON.stringify(data);
-  return fetch('api/add', {
-    method: 'POST',
+  return fetch("api/add", {
+    method: "POST",
     headers: headers,
     body: body
   });
 }
 
+function deleteEvent(event) {
+  if (event.target.className === "delete-button") {
+    const eventName =
+      event.target.nextElementSibling.firstElementChild.textContent;
+    const id = event.target.parentElement.getAttribute("data-id");
+    const deleteConfirmed = confirm(
+      `Are you sure you want to delete the event: ${eventName}?`
+    );
+    if (deleteConfirmed) {
+      requestDelete(id).then(response => {
+        if (response.ok) {
+          deleteLocalEventData(id)
+            .then(() => {
+              event.target.parentElement.remove();
+              setLastUpdated(new Date());
+              messageDataSaved();
+            })
+            .catch(err => {
+              console.log("there was an error somewhere...", err);
+            });
+        }
+      });
+    }
+  }
+}
+function requestDelete(id) {
+  const data = { id: id };
+  console.log(data);
+  const headers = new Headers({ "Content-Type": "application/json" });
+  const body = JSON.stringify(data);
+  return fetch("api/delete", {
+    method: "POST",
+    headers: headers,
+    body: body
+  });
+}
 /* UI functions */
 
 function updateUI(events) {
   events.forEach(event => {
-    const item =
-      `<li class="card">
+    const item = `<li class="card" data-id="${event.id}">
+         <div class="delete-button">X</div>
          <div class="card-text">
            <h2>${event.title}</h2>
            <h4>${event.date}</h4>
@@ -86,42 +205,51 @@ function updateUI(events) {
            <p>${event.note}</p>
          </div>
        </li>`;
-    container.insertAdjacentHTML('beforeend', item);
+    container.insertAdjacentHTML("beforeend", item);
   });
+}
+
+function clearForm() {
+  document.getElementById("title").value = '';
+  document.getElementById("date").value = '';
+  document.getElementById("city").value = '';
+  document.getElementById("note").value = '';
 }
 
 function messageOffline() {
   // alert user that data may not be current
   const lastUpdated = getLastUpdated();
   if (lastUpdated) {
-    offlineMessage.textContent += ' Last fetched server data: ' + lastUpdated;
+    offlineMessage.textContent += " Last fetched server data: " + lastUpdated;
   }
-  offlineMessage.style.display = 'block';
+  offlineMessage.style.display = "block";
 }
 
 function messageNoData() {
   // alert user that there is no data available
-  noDataMessage.style.display = 'block';
+  noDataMessage.style.display = "block";
 }
 
 function messageDataSaved() {
   // alert user that data has been saved for offline
   const lastUpdated = getLastUpdated();
-  if (lastUpdated) {dataSavedMessage.textContent += ' on ' + lastUpdated;}
-  dataSavedMessage.style.display = 'block';
+  if (lastUpdated) {
+    dataSavedMessage.textContent += " on " + lastUpdated;
+  }
+  dataSavedMessage.style.display = "block";
 }
 
 function messageSaveError() {
   // alert user that data couldn't be saved offline
-  saveErrorMessage.style.display = 'block';
+  saveErrorMessage.style.display = "block";
 }
 
 /* Storage functions */
 
 function getLastUpdated() {
-  return localStorage.getItem('lastUpdated');
+  return localStorage.getItem("lastUpdated");
 }
 
 function setLastUpdated(date) {
-  localStorage.setItem('lastUpdated', date);
+  localStorage.setItem("lastUpdated", date);
 }
